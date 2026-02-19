@@ -1,5 +1,5 @@
 {
-  description = "Python development setup with Nix";
+  description = "Python development setup with Nix for Muse project";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -12,20 +12,21 @@
       devShell = with pkgs;
          mkShell {
             packages = [ 
+              # UI
               gtk4
               libadwaita
+              # GStreamer
               gst_all_1.gstreamer
-              # Common plugins like "filesrc" to combine within e.g. gst-launch
               gst_all_1.gst-plugins-base
-              # Specialized plugins separated by quality
               gst_all_1.gst-plugins-good
               gst_all_1.gst-plugins-bad
               gst_all_1.gst-plugins-ugly
-              pkgs.python311 # installs python311
-              pkgs.python311Packages.pygobject3
-              pkgs.python311Packages.ytmusicapi
-              pkgs.python311Packages.yt-dlp
-              pkgs.python311Packages.requests
+              # Python dependencies
+              python311
+              python311Packages.pygobject3
+              python311Packages.ytmusicapi
+              python311Packages.yt-dlp
+              python311Packages.requests
             ];
           shellHook = ''
             python --version
