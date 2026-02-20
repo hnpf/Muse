@@ -50,10 +50,8 @@ This is a list of all the features that are planned for Muse:
   - [x] Playlist tracks.
   - [x] Playlist Play button
   - [x] Playlist Shuffle button
-  - [_] Playlist Order
-    > Currently the playlist has no order options, it shows up as is provided by the API. Need to implement a way to reorder a playlist.
-  - [_] Playlist Cover Change
-    > Currently the playlist cover cannot be changed.
+  - [x] Playlist Order
+  - [x] Playlist Cover Change
   - [_] Playlist Change Visibility
     > Currently the playlist visibility cannot be changed.
   - [_] Playlist Change Description
