@@ -101,7 +101,12 @@ If you got any more ideas or bug reports, feel free to open an issue.
 
 ## Installation
 
-Currently, there is no packages for Muse, so you need to run it from source.
+Currently, there are three options for installing Muse:
+- From Source
+- Using a Nix flake
+- Using flatpak-builder
+
+### From Source
 
 1. Clone the repository:
 
@@ -117,10 +122,37 @@ Currently, there is no packages for Muse, so you need to run it from source.
    pip install -r requirements.txt
    ```
 
-   
-Alternatively, a Nix flake is available for NixOS or Nix Package Manager users
+### Nix
+
+A Nix flake is available for NixOS or Nix Package Manager users.
 See [here](https://github.com/m-obeid/Muse/pull/2#issue-3965386248)
 
+### Flatpak
+
+1. Install Flatpak and required runtimes:
+   ```bash
+   flatpak install flathub org.gnome.Platform//49 org.gnome.Sdk//49
+   ```
+
+2. Clone the repository:
+   ```bash
+   git clone https://github.com/m-obeid/Muse.git
+   cd Muse
+   ```
+
+3. Build and install:
+   ```bash
+   flatpak-builder --user --install --force-clean build-dir com.pocoguy.Muse.yaml
+   ```
+
+4. Run:
+   ```bash
+   flatpak run com.pocoguy.Muse
+   ```
+
+**Authentication:** Open your browser, go to YouTube Music, and copy request headers as described [here](https://ytmusicapi.readthedocs.io/en/stable/setup/browser.html).
+Then run `flatpak run --command=sh com.pocoguy.Muse` and inside the shell run `mkdir -p ~/data/muse && cd ~/data/muse && ytmusicapi browser`.
+Paste the headers and press Ctrl-D.
 
 ## Usage
 

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.pocoguy.Muse</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Muse</name>
+  <summary>A modern, Linux-first YouTube Music player</summary>
+  
+  <description>
+    <p>
+      Muse is a YouTube Music player built with GTK4 and Libadwaita for Linux.
+    </p>
+    <p>
+      Note: This software is in alpha stage. It is not affiliated with YouTube or Google.
+    </p>
+  </description>
+  
+  <developer id="com.pocoguy">
+    <name>Mohamad Obeid</name>
+  </developer>
+  
+  <launchable type="desktop-id">com.pocoguy.Muse.desktop</launchable>
+  
+  <url type="homepage">https://github.com/m-obeid/Muse</url>
+  <url type="bugtracker">https://github.com/m-obeid/Muse/issues</url>
+  <url type="vcs-browser">https://github.com/m-obeid/Muse</url>
+  
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/m-obeid/Muse/main/screenshots/1.png</image>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/m-obeid/Muse/main/screenshots/2.png</image>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/m-obeid/Muse/main/screenshots/3.png</image>
+    </screenshot>
+  </screenshots>
+  
+  <content_rating type="oars-1.1"/>
+  
+  <releases>
+    <release version="0.1.0-alpha" date="2026-02-20">
+      <description>
+        <p>Initial alpha release</p>
+      </description>
+    </release>
+  </releases>
+</component>
