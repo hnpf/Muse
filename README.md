@@ -117,6 +117,11 @@ Currently, there is no packages for Muse, so you need to run it from source.
    pip install -r requirements.txt
    ```
 
+   
+Alternatively, a Nix flake is available for NixOS or Nix Package Manager users
+See [here](https://github.com/m-obeid/Muse/pull/2#issue-3965386248)
+
+
 ## Usage
 
 1. **Authentication (Optional but Recommended)**:
