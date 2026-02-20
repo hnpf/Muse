@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Muse
+Comment=A modern, Linux-first YouTube Music player
+Exec=muse
+Icon=com.pocoguy.Muse
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Player;Music;
+Keywords=youtube;music;streaming;player;audio;
+StartupNotify=true
