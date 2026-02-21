@@ -198,7 +198,7 @@ Paste the headers and press Ctrl-D.
 
 ## Authentication
 
-> [!INFO]
+> [!NOTE]
 > You can now authenticate using the app itself through an embedded WebKit browser!
 
 This app uses `ytmusicapi` for backend data. Authentication allows access to your library and higher quality streams.
