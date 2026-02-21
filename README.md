@@ -192,25 +192,19 @@ See [here](https://github.com/m-obeid/Muse/pull/2#issue-3965386248)
 Then run `flatpak run --command=sh com.pocoguy.Muse` and inside the shell run `mkdir -p ~/data/Muse && cd ~/data/Muse && ytmusicapi browser`.
 Paste the headers and press Ctrl-D.
 
-## Usage
+## Authentication
 
-1. **Authentication (Optional but Recommended)**:
-   This app uses `ytmusicapi` for backend data. Authentication allows access to your library and higher quality streams.
+This app uses `ytmusicapi` for backend data. Authentication allows access to your library and higher quality streams.
 
-   To authenticate, you need to generate a `browser.json` file.
-   - Run: `ytmusicapi browser`
-   - Follow instructions to log in via your browser and paste the headers. It is recommended to use a private browser profile for this, so that you don't get logged out of the account from the app.
-   - The output will be saved as `browser.json` in the project root directory.
+To authenticate, you need to generate a `browser.json` file.
 
-   If you don't have a `browser.json` file, the app will use the unauthenticated API, which can cause playback issues.
+- Run: `ytmusicapi browser`
+- Follow instructions to log in via your browser and paste the headers. It is recommended to use a private browser profile for this, so that you don't get logged out of the account from the app.
+- The output will be saved as `browser.json` in the project root directory.
 
-   The OAuth flow is currently borked in `ytmusicapi`, don't use it. I removed it from the app, but there might be some leftover code.
+If you don't have a `browser.json` file, the app will use the unauthenticated API, which can cause playback issues.
 
-2. **Run the Application**:
-   From the project root directory:
-   ```bash
-   python3 src/main.py
-   ```
+The OAuth flow is currently borked in `ytmusicapi`, don't use it. I removed it from the app, but there might be some leftover code.
 
 ## License
 
