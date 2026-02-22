@@ -7,6 +7,9 @@ import threading
 import random
 import os
 
+from mpris_server.server import Server
+from player.mpris import MuseMprisAdapter, MuseEventAdapter
+
 from api.client import MusicClient
 
 
@@ -66,8 +69,50 @@ class Player(GObject.Object):
         self._is_loading = False
         self._current_logical_state = "stopped"
 
+        # New modes
+        self.repeat_mode = "none"  # none, track, all
+        self.queue_source_id = None
+        self.queue_is_infinite = False
+        self._is_fetching_infinite = False
+
         # Timer for progress
         GObject.timeout_add(100, self.update_position)
+
+        # MPRIS Setup
+        self.mpris_adapter = MuseMprisAdapter(self)
+        self.mpris_server = Server("Mixtapes", adapter=self.mpris_adapter)
+        self.mpris_events = MuseEventAdapter(
+            self.mpris_server.root, self.mpris_server.player
+        )
+        self.mpris_server.set_event_adapter(self.mpris_events)
+        self.mpris_server.loop(background=True)
+
+        # Connect signals for MPRIS updates
+        self.connect("state-changed", self._on_mpris_state_changed)
+        self.connect("metadata-changed", self._on_mpris_metadata_changed)
+        self.connect("progression", self._on_mpris_progression)
+        self.connect("volume-changed", self._on_mpris_volume_changed)
+
+    def _on_mpris_state_changed(self, obj, state):
+        if hasattr(self, "mpris_events"):
+            self.mpris_events.on_playback()
+            self.mpris_events.on_playpause()  # Ensure play/pause button state updates
+            self.mpris_events.on_options()  # Significant: shuffle is an 'option'
+            self.mpris_events.on_player_all()
+
+    def _on_mpris_metadata_changed(
+        self, obj, title, artist, thumb, video_id, like_status
+    ):
+        self.mpris_events.on_title()  # This triggers Metadata refresh in mpris-server
+        self.mpris_events.on_player_all()  # Full property sync on metadata change
+
+    def _on_mpris_progression(self, obj, pos, dur):
+        # We don't usually emit D-Bus signals for every progression tick
+        # as it's too frequent, but mpris-server handles position queries.
+        pass
+
+    def _on_mpris_volume_changed(self, obj, volume, muted):
+        self.mpris_events.on_volume()
 
     def load_video(
         self, video_id, title="Loading...", artist="Unknown", thumbnail_url=None
@@ -81,7 +126,9 @@ class Player(GObject.Object):
         }
         self.set_queue([track])
 
-    def set_queue(self, tracks, start_index=0, shuffle=False):
+    def set_queue(
+        self, tracks, start_index=0, shuffle=False, source_id=None, is_infinite=False
+    ):
         """
         Sets the global queue and plays the track at start_index.
         tracks: list of dicts with videoId, title, artist, thumb
@@ -90,6 +137,9 @@ class Player(GObject.Object):
         self.queue = list(tracks)  # Copy for playing
         self.original_queue = list(tracks)  # Backup for un-shuffle
         self.shuffle_mode = shuffle  # Set mode based on request
+        self.queue_source_id = source_id
+        self.queue_is_infinite = is_infinite
+        self._is_fetching_infinite = False
 
         target_track = (
             self.queue[start_index] if 0 <= start_index < len(self.queue) else None
@@ -193,13 +243,69 @@ class Player(GObject.Object):
         self.emit("state-changed", "stopped")
         self.emit("metadata-changed", "Not Playing", "", "", "", "INDIFFERENT")
 
+    def play_queue_index(self, index):
+        if 0 <= index < len(self.queue):
+            self.stop()
+            self.current_queue_index = index
+            self._play_current_index()
+
+            # Check for infinite auto-append on manual skip
+            print(
+                f"\033[93m[DEBUG-INFINITE] play_queue_index({index}). queue_is_infinite={self.queue_is_infinite}, queue_source_id='{self.queue_source_id}', _is_fetching={self._is_fetching_infinite}, queue_len={len(self.queue)}, target_video={self.queue[index].get('videoId')} target_title={self.queue[index].get('title')}\033[0m"
+            )
+            if self.queue_is_infinite and self.queue_source_id and self.client:
+                if (
+                    not self._is_fetching_infinite
+                    and self.current_queue_index >= len(self.queue) // 2
+                ):
+                    print(
+                        f"\033[92m[DEBUG-INFINITE] Conditions met! Triggering _start_infinite_fetch() from play_queue_index\033[0m"
+                    )
+                    self._start_infinite_fetch()
+                else:
+                    print(
+                        f"\033[91m[DEBUG-INFINITE] Conditions NOT met (is_fetching={self._is_fetching_infinite}, index={self.current_queue_index}, halfway={len(self.queue) // 2})\033[0m"
+                    )
+            else:
+                print(
+                    f"\033[91m[DEBUG-INFINITE] queue_is_infinite check failed (infinite={self.queue_is_infinite}, source={self.queue_source_id}, client={self.client != None})\033[0m"
+                )
+
+            self.emit("state-changed", "queue-updated")
+
     def next(self):
         if self.current_queue_index + 1 < len(self.queue):
             self.current_queue_index += 1
             self._play_current_index()
+
+            # Check for infinite auto-append
+            print(
+                f"\033[93m[DEBUG-INFINITE] next(). queue_is_infinite={self.queue_is_infinite}, queue_source_id='{self.queue_source_id}', _is_fetching={self._is_fetching_infinite}, queue_len={len(self.queue)}\033[0m"
+            )
+            if self.queue_is_infinite and self.queue_source_id and self.client:
+                if (
+                    not self._is_fetching_infinite
+                    and self.current_queue_index >= len(self.queue) // 2
+                ):
+                    print(
+                        f"\033[92m[DEBUG-INFINITE] Conditions met! Triggering _start_infinite_fetch() from next()\033[0m"
+                    )
+                    self._start_infinite_fetch()
+                else:
+                    print(
+                        f"\033[91m[DEBUG-INFINITE] Conditions NOT met (is_fetching={self._is_fetching_infinite}, index={self.current_queue_index}, halfway={len(self.queue) // 2})\033[0m"
+                    )
+            else:
+                print(
+                    f"\033[91m[DEBUG-INFINITE] queue_is_infinite check failed (infinite={self.queue_is_infinite}, source={self.queue_source_id}, client={self.client != None})\033[0m"
+                )
         else:
-            self.stop()  # End of queue
-            self.current_queue_index = -1
+            if self.repeat_mode == "all" and self.queue:
+                self.current_queue_index = 0
+                self._play_current_index()
+            else:
+                self.stop()  # End of queue
+                self.current_queue_index = -1
 
         self.emit("state-changed", "queue-updated")
 
@@ -267,6 +373,13 @@ class Player(GObject.Object):
         # Emit signal to update UI
         self.emit("state-changed", "queue-updated")
 
+    def set_repeat_mode(self, mode):
+        if mode in ["none", "track", "all"]:
+            self.repeat_mode = mode
+            self.emit("state-changed", "repeat-updated")
+            if hasattr(self, "mpris_events"):
+                self.mpris_events.on_options()
+
     def _play_current_index(self):
         if 0 <= self.current_queue_index < len(self.queue):
             track = self.queue[self.current_queue_index]
@@ -294,6 +407,9 @@ class Player(GObject.Object):
             if isinstance(artist, list):
                 artist = ", ".join([a.get("name", "") for a in artist])
 
+            print(
+                f"\033[96m[DEBUG-PLAYER] _play_current_index({self.current_queue_index}). video_id={video_id} title='{title}'\033[0m"
+            )
             self._load_internal(video_id, title, artist, thumb, like_status)
 
     def _load_internal(
@@ -327,6 +443,8 @@ class Player(GObject.Object):
         )
         # Now emit the loading state (only transition: whatever -> loading)
         self._update_logical_state()
+        if hasattr(self, "mpris_events"):
+            self.mpris_events.on_player_all()
 
         # Run yt-dlp in a thread
         thread = threading.Thread(
@@ -381,6 +499,49 @@ class Player(GObject.Object):
             f"DEBUG: Extended queue with {len(tracks)} tracks. Total: {len(self.queue)}"
         )
         self.emit("state-changed", "queue-updated")
+
+    def _start_infinite_fetch(self):
+        self._is_fetching_infinite = True
+        limit = 50
+        print(
+            f"Queue halfway point reached. Fetching more for infinite playlist {self.queue_source_id}..."
+        )
+
+        last_video_id = None
+        if self.queue:
+            last_video_id = self.queue[-1].get("videoId")
+
+        def fetch_job():
+            try:
+                data = self.client.get_watch_playlist(
+                    video_id=last_video_id,
+                    playlist_id=self.queue_source_id,
+                    limit=limit,
+                    radio=True,
+                )
+                tracks = data.get("tracks", [])
+
+                # Filter out tracks already in our queue
+                existing_ids = {
+                    t.get("videoId") for t in self.queue if t.get("videoId")
+                }
+                new_tracks = [t for t in tracks if t.get("videoId") not in existing_ids]
+
+                if new_tracks:
+                    GObject.idle_add(self._on_infinite_fetch_complete, new_tracks)
+                else:
+                    self._is_fetching_infinite = False
+            except Exception as e:
+                print(f"Error fetching infinite queue: {e}")
+                self._is_fetching_infinite = False
+
+        thread = threading.Thread(target=fetch_job)
+        thread.daemon = True
+        thread.start()
+
+    def _on_infinite_fetch_complete(self, new_tracks):
+        self.extend_queue(new_tracks)
+        self._is_fetching_infinite = False
 
     def _create_cookie_file(self, headers):
         """Creates a temporary Netscape format cookie file from headers."""
@@ -593,7 +754,10 @@ class Player(GObject.Object):
         if t == Gst.MessageType.EOS:
             print("EOS Reached. Advancing to next track.")
             self.stop()
-            GObject.idle_add(self.next)
+            if self.repeat_mode == "track":
+                GObject.idle_add(self._play_current_index)
+            else:
+                GObject.idle_add(self.next)
         elif t == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             print(f"Error: {err}, {debug}")
@@ -627,28 +791,48 @@ class Player(GObject.Object):
             # Query duration always to ensure accuracy or at least retry
             ret, dur = self.player.query_duration(Gst.Format.TIME)
             if ret:
-                self.duration = dur / Gst.SECOND
+                new_dur = dur / Gst.SECOND
+                if new_dur != self.duration:
+                    self.duration = new_dur
+                    if hasattr(self, "mpris_events"):
+                        self.mpris_events.on_title()  # Refresh metadata with new length
 
             # Query position
             ret, pos = self.player.query_position(Gst.Format.TIME)
             if ret:
                 current_time = pos / Gst.SECOND
+
+                # Suppress updates briefly after seek to prevent "jumping back"
+                import time
+
+                if time.time() - getattr(self, "last_seek_time", 0) < 0.5:
+                    return True
+
                 # If duration is still unknown or invalid, use current_time + ? or just don't crash
                 d = self.duration if self.duration > 0 else 0
                 self.emit("progression", float(current_time), float(d))
         return True
 
-    def seek(self, position):
+    def seek(self, position, flush=True):
         """Seek to position in seconds"""
+        if self.player.get_state(0)[1] == Gst.State.NULL:
+            return
+
         import time
 
         self.last_seek_time = time.time()
-        # Use ACCURATE to avoid snapping to distant keyframes (which causes the "jumping back" issue)
+
+        flags = Gst.SeekFlags.ACCURATE
+        if flush:
+            flags |= Gst.SeekFlags.FLUSH
+
         self.player.seek_simple(
             Gst.Format.TIME,
-            Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE,
+            flags,
             int(position * Gst.SECOND),
         )
+        if hasattr(self, "mpris_events"):
+            self.mpris_events.on_seek(int(position * 1_000_000))
 
     def get_volume(self):
         return self.player.get_property("volume")

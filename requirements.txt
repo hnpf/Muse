@@ -3,3 +3,4 @@ ytmusicapi
 yt-dlp
 yt-dlp-ejs
 requests
+mpris-server

@@ -63,6 +63,7 @@ class MusicClient:
         self.api = None
         self.auth_path = os.path.join(os.getcwd(), "data", "headers_auth.json")
         self._is_authed = False
+        self._playlist_cache = {}  # Cache fully-fetched playlists
         self.try_login()
 
     def try_login(self):
@@ -292,6 +293,30 @@ class MusicClient:
         print(f"--- API RESPONSE: get_playlist({playlist_id}) ---")
         print(json.dumps(res, indent=2))
         return res
+
+    def get_watch_playlist(
+        self, video_id=None, playlist_id=None, limit=25, radio=False
+    ):
+        if not self.api:
+            return {}
+        try:
+            res = self.api.get_watch_playlist(
+                videoId=video_id, playlistId=playlist_id, limit=limit, radio=radio
+            )
+            print(
+                f"--- API RESPONSE: get_watch_playlist({video_id}, {playlist_id}) ---"
+            )
+            print(json.dumps(res, indent=2))
+            return res
+        except Exception as e:
+            print(f"Error getting watch playlist: {e}")
+            return {}
+
+    def get_cached_playlist_tracks(self, playlist_id):
+        return self._playlist_cache.get(playlist_id)
+
+    def set_cached_playlist_tracks(self, playlist_id, tracks):
+        self._playlist_cache[playlist_id] = tracks
 
     def get_album(self, browse_id):
         if not self.api:

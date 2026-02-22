@@ -75,7 +75,8 @@ This is a list of all the features that are planned for Mixtapes:
 - [_] **Caching**: Cache data to reduce latency and bandwidth usage
 - [-] **Responsive Design**: Mobile-friendly layout with adaptive UI.
   > Desktop needs to use the empty space better.
-- [_] **MPRIS Support**: Control playback from system media controls.
+- [x] **MPRIS Support**: Control playback from system media controls.
+- [_] **Cover Art Tint**: Tint libadwaita to match the cover art of the current song, kinda like Material You.
 - [_] **Discord RPC**: Show your current track on Discord.
 - [_] **Lyrics**: View synchronized lyrics, maybe even using BetterLyrics API.
 - [_] **Settings**: Configure app preferences (theme, audio quality, etc.).
@@ -86,7 +87,9 @@ This is a list of all the features that are planned for Mixtapes:
 - [-] **Flatpak**: Package Mixtapes as a Flatpak.
   - [x] Flatpak build
   - [-] Flathub release
-  - [-] App icon
+  - [_] App icon
+- [_] **GNOME Circle**: Maybe get Mixtapes on GNOME Circle?
+  > Still considering it, might not happen.
 - [_] **AppImage**: Package Mixtapes as an AppImage.
 - [x] **AUR**: Package Mixtapes as an AUR package.
 
@@ -191,7 +194,6 @@ See [here](https://github.com/m-obeid/Muse/pull/2#issue-3965386248)
    ```bash
    flatpak run com.pocoguy.Muse
    ```
-
 
 ## Authentication
 

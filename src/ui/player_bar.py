@@ -28,6 +28,13 @@ class PlayerBar(Gtk.Box):
         self.scale.connect("change-value", self.on_scale_change_value)
         self.append(self.scale)
 
+        # Scrolling to seek
+        scroll_controller = Gtk.EventControllerScroll.new(
+            Gtk.EventControllerScrollFlags.VERTICAL
+        )
+        scroll_controller.connect("scroll", self.on_scale_scroll)
+        self.scale.add_controller(scroll_controller)
+
         # 2. Main Content Area (Horizontal)
         content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         content_box.set_margin_top(12)
@@ -254,6 +261,38 @@ class PlayerBar(Gtk.Box):
     def on_scale_change_value(self, scale, scroll, value):
         if self.player.duration > 0:
             self.player.seek(value)
+        return False
+
+    def on_scale_scroll(self, controller, dx, dy):
+        if self.player.duration <= 0:
+            return False
+
+        adj = self.scale.get_adjustment()
+        val = adj.get_value()
+
+        # 2 seconds per tick
+        step = 2.0
+        new_val = val - (dy * step)
+
+        new_val = max(0, min(new_val, self.player.duration))
+        adj.set_value(new_val)
+
+        # Debounce the seek and use non-flushing seek for smoothness
+        if hasattr(self, "_scroll_seek_id") and self._scroll_seek_id:
+            from gi.repository import GLib
+
+            GLib.source_remove(self._scroll_seek_id)
+
+        from gi.repository import GLib
+
+        self._scroll_seek_id = GLib.timeout_add(100, self._do_scroll_seek, new_val)
+        return True
+
+    def _do_scroll_seek(self, value):
+        # Using flush=True to ensure immediate response during scrolling
+        self.player.seek(value, flush=True)
+        self._scroll_seek_id = None
+        return False
 
     def _load_css(self):
         css = """
@@ -359,6 +398,9 @@ class PlayerBar(Gtk.Box):
         return f"{m}:{s:02d}"
 
     def on_progression(self, player, pos, dur):
+        # Don't update the scale if we're actively scrolling to avoid jitter
+        if getattr(self, "_scroll_seek_id", None):
+            return
         self.scale.set_range(0, dur)
         self.scale.set_value(pos)
         t = f"{self._format_time(pos)} / {self._format_time(dur)}"

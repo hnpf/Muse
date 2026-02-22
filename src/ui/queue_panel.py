@@ -173,6 +173,12 @@ class QueuePanel(Gtk.Box):
         self.shuffle_btn.connect("clicked", self._on_shuffle_clicked)
         header.append(self.shuffle_btn)
 
+        # Repeat Toggle
+        self.repeat_btn = Gtk.Button(icon_name="media-playlist-consecutive-symbolic")
+        self.repeat_btn.set_tooltip_text("Repeat Mode")
+        self.repeat_btn.connect("clicked", self._on_repeat_clicked)
+        header.append(self.repeat_btn)
+
         clear_btn = Gtk.Button(label="Clear")
         clear_btn.connect("clicked", lambda x: self.player.clear_queue())
         header.append(clear_btn)
@@ -206,6 +212,7 @@ class QueuePanel(Gtk.Box):
         # Initial Populate
         self._populate()
         self._update_shuffle_state()
+        self._update_repeat_state()
 
     def _on_map(self, *args):
         # Refresh list when sidebar becomes visible - but only if count changed
@@ -215,6 +222,7 @@ class QueuePanel(Gtk.Box):
             self._update_item_states()
 
         self._update_shuffle_state()
+        self._update_repeat_state()
         GLib.idle_add(self._scroll_to_current)
 
     def _scroll_to_current(self):
@@ -237,6 +245,27 @@ class QueuePanel(Gtk.Box):
             self.shuffle_btn.add_css_class("accent")
         else:
             self.shuffle_btn.remove_css_class("accent")
+
+    def _update_repeat_state(self):
+        mode = getattr(self.player, "repeat_mode", "none")
+        if mode == "track":
+            self.repeat_btn.set_icon_name("media-playlist-repeat-song-symbolic")
+            self.repeat_btn.add_css_class("accent")
+        elif mode == "all":
+            self.repeat_btn.set_icon_name("media-playlist-repeat-symbolic")
+            self.repeat_btn.add_css_class("accent")
+        else:
+            self.repeat_btn.set_icon_name("media-playlist-consecutive-symbolic")
+            self.repeat_btn.remove_css_class("accent")
+
+    def _on_repeat_clicked(self, btn):
+        mode = getattr(self.player, "repeat_mode", "none")
+        if mode == "none":
+            self.player.set_repeat_mode("all")
+        elif mode == "all":
+            self.player.set_repeat_mode("track")
+        else:
+            self.player.set_repeat_mode("none")
 
     def _populate(self):
         self._programmatic_update = True
@@ -279,8 +308,7 @@ class QueuePanel(Gtk.Box):
             if item.index == self.player.current_queue_index:
                 return
 
-            self.player.current_queue_index = item.index
-            self.player._play_current_index()
+            self.player.play_queue_index(item.index)
 
     def _on_row_move(self, old_index, new_index):
         if self.player.move_queue_item(old_index, new_index):
@@ -288,6 +316,7 @@ class QueuePanel(Gtk.Box):
 
     def _on_player_update(self, player, *args):
         self._update_shuffle_state()
+        self._update_repeat_state()
 
         # Determine if this is a state-changed or metadata-changed signal
         # state-changed (player, state) -> args = (state,)
