@@ -19,6 +19,8 @@ finish-args:
   - --share=network
   - --persist=.
   - --device=dri
+  - --socket=session-bus
+
 
 modules:
   # Install Node.js to /app/bin for runtime availability
