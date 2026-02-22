@@ -670,8 +670,11 @@ class MainWindow(Adw.ApplicationWindow):
 
         if track and "album" in track and track["album"]:
             album = track["album"]
-            album_id = album.get("id")
-            album_name = album.get("name", album_name)
+            if isinstance(album, dict):
+                album_id = album.get("id")
+                album_name = album.get("name", album_name)
+            elif isinstance(album, str):
+                album_name = album
 
         if not album_id:
             # Fall back to fetching watch playlist to see if it belongs to an album
@@ -684,8 +687,11 @@ class MainWindow(Adw.ApplicationWindow):
                     tracks = res.get("tracks", [])
                     if tracks and "album" in tracks[0] and tracks[0]["album"]:
                         album = tracks[0]["album"]
-                        album_id = album.get("id")
-                        album_name = album.get("name", "Album")
+                        if isinstance(album, dict):
+                            album_id = album.get("id")
+                            album_name = album.get("name", "Album")
+                        elif isinstance(album, str):
+                            album_name = album
                 except Exception as e:
                     print(f"Failed to resolve album: {e}")
 

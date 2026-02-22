@@ -69,6 +69,7 @@ class ExpandedPlayer(Gtk.Box):
 
         # Add tap gesture for album navigation
         cover_click = Gtk.GestureClick()
+        cover_click.connect("pressed", self._on_cover_pressed)
         cover_click.connect("released", self._on_cover_tapped)
         cover_frame.add_controller(cover_click)
 
@@ -463,10 +464,22 @@ class ExpandedPlayer(Gtk.Box):
     def _on_artist_btn_clicked(self, btn):
         if self.on_artist_click:
             self.on_artist_click()
+        self.emit("dismiss")
+
+    def _on_cover_pressed(self, gesture, n_press, x, y):
+        self._press_x = x
+        self._press_y = y
 
     def _on_cover_tapped(self, gesture, n_press, x, y):
+        # Ignore false clicks generated during a swiping drag
+        if hasattr(self, "_press_x"):
+            if abs(x - self._press_x) > 15 or abs(y - self._press_y) > 15:
+                # User was swiping the carousel
+                return
+
         if self.on_album_click:
             self.on_album_click()
+        self.emit("dismiss")
 
     # --- ADW.CAROUSEL GESTURE HANDLERS ---
 
