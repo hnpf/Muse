@@ -435,9 +435,8 @@ class MusicClient:
     def set_playlist_thumbnail(self, playlist_id, image_path):
         """
         Sets a custom thumbnail for a playlist.
-        Uses the internal endpoint 'playlist/set_playlist_thumbnail'.
+        Uses internal endpoints. Resizes to 1024x1024 max.
         """
-        # shit
         if not self.is_authenticated():
             return False
         try:

@@ -329,8 +329,7 @@ class MainWindow(Adw.ApplicationWindow):
         about.present(self)
 
     def show_preferences(self, action, param):
-        prefs = Adw.PreferencesWindow()
-        prefs.set_transient_for(self)
+        prefs = Adw.PreferencesDialog()
 
         page = Adw.PreferencesPage()
         page.set_title("General")
@@ -354,7 +353,7 @@ class MainWindow(Adw.ApplicationWindow):
         row.add_suffix(logout_btn)
         group.add(row)
 
-        prefs.present()
+        prefs.present(self)
 
     def on_logout_clicked(self, btn, prefs_window):
         from api.client import MusicClient
