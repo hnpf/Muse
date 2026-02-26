@@ -1,8 +1,11 @@
-from gi.repository import Gtk, Adw, GObject, GLib, Pango, Gdk, Gio
 import threading
 import re
+import os
+import tempfile
+from gi.repository import Gtk, Adw, GObject, GLib, Pango, Gdk, Gio, GdkPixbuf
 from api.client import MusicClient
 from ui.utils import AsyncImage, LikeButton
+from ui.crop_dialog import ImageCropDialog
 
 # ── GObject Models ────────────────────────────────────────────────────────────
 
@@ -1182,10 +1185,33 @@ class PlaylistPage(Adw.Bin):
                 try:
                     file = dialog_inner.open_finish(result)
                     if file:
-                        self._selected_cover_path = file.get_path()
-                        cover_row.set_subtitle(file.get_basename())
+                        path = file.get_path()
+                        # Load pixbuf
+                        pixbuf = GdkPixbuf.Pixbuf.new_from_file(path)
+
+                        # Open crop dialog
+                        crop_dg = ImageCropDialog(self.get_root(), pixbuf)
+
+                        def on_crop_response(dg, response_id):
+                            if response_id == Gtk.ResponseType.OK:
+                                result_pixbuf = dg.result_pixbuf
+                                if result_pixbuf:
+                                    # Save to temp file as PNG
+                                    temp_dir = tempfile.gettempdir()
+                                    temp_path = os.path.join(
+                                        temp_dir, f"mixtape_crop_{os.getpid()}.png"
+                                    )
+                                    result_pixbuf.savev(temp_path, "png", [], [])
+
+                                    self._selected_cover_path = temp_path
+                                    cover_row.set_subtitle(
+                                        f"Cropped PNG: {file.get_basename()}"
+                                    )
+
+                        crop_dg.connect("response", on_crop_response)
+                        crop_dg.present()
                 except Exception as e:
-                    print(f"Error selecting file: {e}")
+                    print(f"Error selecting or cropping file: {e}")
 
             # Use the actual application window as parent
             parent = self.get_root()

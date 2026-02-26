@@ -1,5 +1,6 @@
 import os
 import json
+import requests
 from ytmusicapi import YTMusic
 import ytmusicapi.navigation
 
@@ -264,18 +265,13 @@ class MusicClient:
     def search(self, query, *args, **kwargs):
         if not self.api:
             return []
-        res = self.api.search(query, *args, **kwargs)
-        print(f"--- API RESPONSE: search({query}) ---")
-        print(json.dumps(res, indent=2))
-        return res
+        return self.api.search(query, *args, **kwargs)
 
     def get_song(self, video_id):
         if not self.api:
             return None
         try:
             res = self.api.get_song(video_id)
-            print(f"--- API RESPONSE: get_song({video_id}) ---")
-            print(json.dumps(res, indent=2))
             return res
         except Exception as e:
             print(f"Error getting song details: {e}")
@@ -289,10 +285,7 @@ class MusicClient:
     def get_playlist(self, playlist_id, limit=None):
         if not self.api:
             return None
-        res = self.api.get_playlist(playlist_id, limit=limit)
-        print(f"--- API RESPONSE: get_playlist({playlist_id}) ---")
-        print(json.dumps(res, indent=2))
-        return res
+        return self.api.get_playlist(playlist_id, limit=limit)
 
     def get_watch_playlist(
         self, video_id=None, playlist_id=None, limit=25, radio=False
@@ -303,10 +296,6 @@ class MusicClient:
             res = self.api.get_watch_playlist(
                 videoId=video_id, playlistId=playlist_id, limit=limit, radio=radio
             )
-            print(
-                f"--- API RESPONSE: get_watch_playlist({video_id}, {playlist_id}) ---"
-            )
-            print(json.dumps(res, indent=2))
             return res
         except Exception as e:
             print(f"Error getting watch playlist: {e}")
@@ -321,18 +310,13 @@ class MusicClient:
     def get_album(self, browse_id):
         if not self.api:
             return None
-        res = self.api.get_album(browse_id)
-        print(f"--- API RESPONSE: get_album({browse_id}) ---")
-        print(json.dumps(res, indent=2))
-        return res
+        return self.api.get_album(browse_id)
 
     def get_artist(self, channel_id):
         if not self.api:
             return None
         try:
             res = self.api.get_artist(channel_id)
-            print(f"--- API RESPONSE: get_artist({channel_id}) ---")
-            print(json.dumps(res, indent=2))
             return res
         except Exception as e:
             print(f"Error getting artist details: {e}")
@@ -343,8 +327,6 @@ class MusicClient:
             return []
         # Liked songs is actually a playlist 'LM'
         res = self.api.get_liked_songs(limit=limit)
-        print("--- API RESPONSE: get_liked_songs ---")
-        print(json.dumps(res, indent=2))
         return res
 
     def get_charts(self, country="US"):
@@ -360,10 +342,7 @@ class MusicClient:
     def get_album_browse_id(self, audio_playlist_id):
         if not self.api:
             return None
-        res = self.api.get_album_browse_id(audio_playlist_id)
-        print(f"--- API RESPONSE: get_album_browse_id({audio_playlist_id}) ---")
-        print(json.dumps(res, indent=2))
-        return res
+        return self.api.get_album_browse_id(audio_playlist_id)
 
     def rate_song(self, video_id, rating="LIKE"):
         """
@@ -372,9 +351,7 @@ class MusicClient:
         if not self.is_authenticated():
             return False
         try:
-            res = self.api.rate_song(video_id, rating)
-            print(f"--- API RESPONSE: rate_song({video_id}, {rating}) ---")
-            print(json.dumps(res, indent=2))
+            self.api.rate_song(video_id, rating)
             return True
         except Exception as e:
             print(f"Error rating song: {e}")
@@ -418,15 +395,13 @@ class MusicClient:
         if not self.is_authenticated():
             return False
         try:
-            res = self.api.edit_playlist(
+            self.api.edit_playlist(
                 playlist_id,
                 title=title,
                 description=description,
                 privacyStatus=privacy,
                 moveItem=moveItem,
             )
-            print(f"--- API RESPONSE: edit_playlist({playlist_id}) ---")
-            print(json.dumps(res, indent=2))
             return True
         except Exception as e:
             print(f"Error editing playlist: {e}")
@@ -435,43 +410,103 @@ class MusicClient:
     def set_playlist_thumbnail(self, playlist_id, image_path):
         """
         Sets a custom thumbnail for a playlist.
-        Uses internal endpoints. Resizes to 1024x1024 max.
+        Uses internal YouTube resumable upload endpoints. Resizes to 1024x1024 max.
         """
         if not self.is_authenticated():
+            print("Not authenticated.")
             return False
+
+        import requests
+
         try:
-            import base64
             with open(image_path, "rb") as f:
                 img_data = f.read()
-                b64_img = base64.b64encode(img_data).decode("utf-8")
 
-            # common internal payload formats
-            # Format A: {"playlistId": "...", "image": "base64..."}
-            # Format B: {"playlistId": "...", "image": {"encodedImage": "base64..."}}
-            # Format C: {"playlistId": "...", "image": {"image": "base64..."}}
-            formats = [
-                {"playlistId": playlist_id, "image": b64_img},
-                {"playlistId": playlist_id, "image": {"encodedImage": b64_img}},
-                {"playlistId": playlist_id, "image": {"image": b64_img}},
-            ]
+            print(f"DEBUG: Uploading thumbnail for {playlist_id}")
 
-            success = False
-            for i, body in enumerate(formats):
-                print(f"DEBUG: trying thumbnail upload format {chr(65+i)} for {playlist_id}")
-                try:
-                    res = self.api._send_request("playlist/set_playlist_thumbnail", body)
-                    print(f"DEBUG: Format {chr(65+i)} response: {res}")
-                    success = True
-                    if isinstance(res, dict) and res.get("status") == "SUCCEEDED":
-                        break
-                except Exception as e:
-                    print(f"DEBUG: Format {chr(65+i)} failed: {e}")
-                    if "Expecting value" in str(e): # in some internal endpoints, empty response means success.. 
-                        success = True
-                        break
-                    continue
-            
-            return success
+            # Use base ytmusicapi headers, but remove Content-Type for binary upload steps
+            base_headers = self.api.headers.copy()
+            base_headers.pop("Content-Type", None)
+
+            # --- STEP 1: INITIATE UPLOAD ---
+            headers_start = base_headers.copy()
+            headers_start.update(
+                {
+                    "X-Goog-Upload-Command": "start",
+                    "X-Goog-Upload-Protocol": "resumable",
+                    "X-Goog-Upload-Header-Content-Length": str(len(img_data)),
+                }
+            )
+
+            init_res = requests.post(
+                "https://music.youtube.com/playlist_image_upload/playlist_custom_thumbnail",
+                headers=headers_start,
+            )
+
+            upload_id = init_res.headers.get("x-guploader-uploadid")
+
+            if not upload_id:
+                raise Exception(
+                    "Failed to obtain upload ID. (Is your account verified with a phone number?)"
+                )
+
+            # --- STEP 2: UPLOAD BINARY DATA ---
+            headers_upload = base_headers.copy()
+            headers_upload.update(
+                {
+                    "X-Goog-Upload-Command": "upload, finalize",
+                    "X-Goog-Upload-Offset": "0",
+                }
+            )
+
+            params = {"upload_id": upload_id, "upload_protocol": "resumable"}
+
+            upload_res = requests.post(
+                "https://music.youtube.com/playlist_image_upload/playlist_custom_thumbnail",
+                headers=headers_upload,
+                params=params,
+                data=img_data,
+            )
+
+            blob_data = upload_res.json()
+            blob_id = blob_data.get("encryptedBlobId")
+
+            if not blob_id:
+                raise Exception(
+                    f"Failed to obtain encryptedBlobId. Response: {blob_data}"
+                )
+
+            # --- STEP 3: BIND BLOB TO PLAYLIST ---
+            clean_playlist_id = (
+                playlist_id[2:] if playlist_id.startswith("VL") else playlist_id
+            )
+
+            payload = {
+                "playlistId": clean_playlist_id,
+                "actions": [
+                    {
+                        "action": "ACTION_SET_CUSTOM_THUMBNAIL",
+                        "addedCustomThumbnail": {
+                            "imageKey": {
+                                "type": "PLAYLIST_IMAGE_TYPE_CUSTOM_THUMBNAIL",
+                                "name": "studio_square_thumbnail",
+                            },
+                            "playlistScottyEncryptedBlobId": blob_id,
+                        },
+                    }
+                ],
+            }
+
+            # _send_request natively handles putting "Content-Type: application/json" back
+            edit_res = self.api._send_request("browse/edit_playlist", payload)
+
+            if edit_res.get("status") == "STATUS_SUCCEEDED":
+                print("Thumbnail successfully updated!")
+                return True
+            else:
+                print(f"Failed to bind thumbnail. API Response: {edit_res}")
+                return False
+
         except Exception as e:
             print(f"Error setting playlist thumbnail: {e}")
             return False
